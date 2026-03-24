@@ -28,34 +28,69 @@ class ToppingPancakeSorter(IPancakeSorter):
     'topping first, then sort the rest' rule.
     """
     
-    def _flip(self, stack: List[int], k: int) -> None:
+    def _flip(self, stack: List[int], k: int, start_idx: int = 0) -> None:
         """
-        Helper method to reverse the top elements of the stack down to position k.
+        Helper method to reverse a portion of the stack.
+        - `k` is the position counted from the bottom of the current sub-stack.
+        - `start_idx` allows us to ignore the topping (index 0) when sorting the rest.
+        """
+        # Calculate how many elements are in the sub-stack we are currently looking at
+        sub_size = len(stack) - start_idx
         
-        TODO: Implement the logic to reverse a sub-list of `stack`.
-        Remember: In the problem description, 'k' is counted from the BOTTOM 
-        of the current stack/sub-stack being considered!
-        """
-        pass
+        # Translate 'k from the bottom' to the number of elements we need to flip from the top
+        num_to_flip = sub_size - k + 1
+        
+        # Slice and reverse
+        end_idx = start_idx + num_to_flip
+        stack[start_idx:end_idx] = reversed(stack[start_idx:end_idx])
 
     def sort(self, stack: List[int], topping: int) -> Tuple[List[int], List[int]]:
-        """
-        Executes the sorting algorithm.
-        
-        TODO: 
-        1. Find the topping and use self._flip() to move it to the top.
-        2. Iterate through the remaining sub-stack below the topping.
-        3. Use self._flip() to sort the remaining pancakes (smallest at top, largest at bottom).
-        4. Track every 'k' used in a flip and append it to the `flips` list.
-        5. Append 0 to the `flips` list when finished.
-        """
         flips = []
-        working_stack = stack.copy() # Good practice to not mutate the original input directly
+        working_stack = stack.copy()
+        n = len(working_stack)
         
-        # --- YOUR ALGORITHM GOES HERE ---
+        # Move topping to the top
+        topping_idx = working_stack.index(topping)
         
+        if topping_idx != 0: # If it's not already at the top
+            # Calculate k for the topping. Since we look at the whole stack, start_idx is 0.
+            k = n - topping_idx
+            flips.append(k)
+            self._flip(working_stack, k, start_idx=0)
+
+
+        # Sort the remaining sub-stack
+        sub_size = n - 1 
         
-        # --------------------------------
+        # We shrink the 'unsorted' portion by 1 each time we place the largest pancake at the bottom
+        for curr_size in range(sub_size, 1, -1):
+            
+            # 1. Find the index of the largest pancake in the current unsorted portion
+            max_val = -1
+            max_idx = -1
+            # We check from index 1 (just below topping) up to the current unsorted boundary
+            for i in range(1, 1 + curr_size):
+                if working_stack[i] > max_val:
+                    max_val = working_stack[i]
+                    max_idx = i
+                    
+            # 2. If the largest is already at the bottom of the unsorted pile, do nothing
+            if max_idx == 1 + curr_size - 1:
+                continue
+                
+            # 3. If the largest is NOT at the top of the sub-stack (index 1), flip it to the top
+            if max_idx > 1:
+                k = sub_size - max_idx + 1
+                flips.append(k)
+                self._flip(working_stack, k, start_idx=1)
+                
+            # 4. Now that the largest is at the top of the sub-stack, flip it to the bottom of the unsorted pile
+            k = sub_size - curr_size + 1
+            flips.append(k)
+            self._flip(working_stack, k, start_idx=1)
+
+        # End sequence with 0 as required by the constraints
+        flips.append(0) 
         
         return working_stack, flips
 
@@ -71,18 +106,21 @@ class PancakeApp:
         self.sorter = sorter
 
     def run(self, input_text: str) -> None:
-        """Parses the input, triggers the sort, and prints the exact required output."""
-        lines = input_text.strip().split('\n')
-        if len(lines) < 2:
-            return
+            """Parses the input, triggers the sort, and prints the exact required output."""
+            lines = input_text.strip().split('\n')
+            if len(lines) < 2:
+                return
+                
+            # We grab index 0 for the topping
+            topping = int(lines[0].strip()) 
             
-        topping = int(lines.strip())
-        original_stack = [int(x) for x in lines[1].strip().split()]
-        
-        # Trigger the injected sorting algorithm
-        sorted_stack, flips = self.sorter.sort(original_stack, topping)
-        
-        self._print_results(original_stack, topping, flips, sorted_stack)
+            # We grab index 1 for the pancake stack
+            original_stack = [int(x) for x in lines[1].strip().split()]
+            
+            # Trigger the injected sorting algorithm
+            sorted_stack, flips = self.sorter.sort(original_stack, topping)
+            
+            self._print_results(original_stack, topping, flips, sorted_stack)
 
     def _print_results(self, original: List[int], topping: int, flips: List[int], sorted_stack: List[int]) -> None:
         """Formats the output exactly as specified by the requirements."""
@@ -95,7 +133,7 @@ class PancakeApp:
 # MAIN EXECUTION
 if __name__ == "__main__":
     # Example input from the prompt
-    sample_input = """5
+    sample_input = """5 
 3 1 5 2 4"""
 
     # 1. Instantiate our specific sorter
